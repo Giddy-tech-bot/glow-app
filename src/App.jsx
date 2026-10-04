@@ -19,6 +19,7 @@ import RoleSwitcherModal from "./components/RoleSwitcherModal";
 import CustomerDashboardView from "./components/CustomerDashboardView";
 import ShopOwnerPortalView from "./components/ShopOwnerPortalView";
 import ProductCheckoutModal from "./components/ProductCheckoutModal";
+import AccountModal from "./components/AccountModal";
 
 import {
   initialBeauticians,
@@ -29,10 +30,44 @@ import {
   initialProductOrders
 } from "./data/mockData";
 
+const API_BASE = "/api";
+
+const apiRequest = async (endpoint, options = {}) => {
+  const response = await fetch(`${API_BASE}${endpoint}`, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {})
+    },
+    ...options
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    let message = text || "Request failed";
+    try {
+      message = JSON.parse(text).message || message;
+    } catch {
+      // Keep the raw response text when the server does not return JSON.
+    }
+    throw new Error(message);
+  }
+
+  if (response.status === 204) {
+    return null;
+  }
+
+  return response.json();
+};
+
 export default function App() {
+  const [currentAccount, setCurrentAccount] = useState(() => {
+    const saved = localStorage.getItem("glow_account_v1");
+    return saved ? JSON.parse(saved) : null;
+  });
+
   // Persistent Role & User State: 'customer' | 'beautician' | 'shop_owner'
   const [currentRole, setCurrentRole] = useState(() => {
-    return localStorage.getItem("glow_current_role") || "customer";
+    return localStorage.getItem("glow_current_role") || currentAccount?.role || "customer";
   });
 
   // Persistent State
@@ -67,6 +102,14 @@ export default function App() {
   }, [currentRole]);
 
   useEffect(() => {
+    if (currentAccount) {
+      localStorage.setItem("glow_account_v1", JSON.stringify(currentAccount));
+    } else {
+      localStorage.removeItem("glow_account_v1");
+    }
+  }, [currentAccount]);
+
+  useEffect(() => {
     localStorage.setItem("glow_beauticians_v3", JSON.stringify(beauticians));
   }, [beauticians]);
 
@@ -86,6 +129,38 @@ export default function App() {
     localStorage.setItem("glow_orders_v3", JSON.stringify(productOrders));
   }, [productOrders]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadFromApi = async () => {
+      try {
+        const [beauticiansResponse, postsResponse, bookingsResponse, productsResponse, ordersResponse] = await Promise.all([
+          apiRequest("/beauticians"),
+          apiRequest("/posts"),
+          apiRequest("/bookings"),
+          apiRequest("/products"),
+          apiRequest("/product-orders")
+        ]);
+
+        if (!isMounted) return;
+
+        setBeauticians(beauticiansResponse || initialBeauticians);
+        setPosts(postsResponse || initialPosts);
+        setBookings(bookingsResponse || initialBookings);
+        setProducts(productsResponse || initialProducts);
+        setProductOrders(ordersResponse || initialProductOrders);
+      } catch (error) {
+        console.warn("Falling back to local data because the backend is unavailable:", error);
+      }
+    };
+
+    loadFromApi();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   // Navigation & View State
   const [currentPage, setCurrentPage] = useState("home");
   const [selectedBeautician, setSelectedBeautician] = useState(beauticians[0]);
@@ -94,11 +169,26 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
 
+  useEffect(() => {
+    if (!beauticians.length) return;
+
+    const selectedStillExists = beauticians.some((b) => b.id === selectedBeautician?.id);
+    if (!selectedStillExists) {
+      setSelectedBeautician(beauticians[0]);
+      setSelectedService(beauticians[0].services[0] || null);
+    }
+  }, [beauticians, selectedBeautician]);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [currentPage]);
+
   // Beautician Pro Portal active persona
   const [activeProBeautician, setActiveProBeautician] = useState(beauticians[0]);
 
   // Modals & Drawers
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
   const [isStudioOpen, setIsStudioOpen] = useState(false);
   const [chatBeautician, setChatBeautician] = useState(null);
@@ -106,7 +196,20 @@ export default function App() {
 
   const navigate = (page) => {
     setCurrentPage(page);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleAccountSubmit = async ({ name, email, password, role, mode }) => {
+    const result = await apiRequest(mode === "register" ? "/accounts" : "/accounts/login", {
+      method: "POST",
+      body: JSON.stringify(mode === "register" ? { name, email, password, role } : { email, password })
+    });
+
+    setCurrentAccount(result.account);
+    setCurrentRole(result.account.role);
+    setIsAccountModalOpen(false);
+    if (result.account.role === "beautician") navigate("pro-dashboard");
+    else if (result.account.role === "shop_owner") navigate("shop-portal");
+    else navigate("home");
   };
 
   const openBeauticianProfile = (b) => {
@@ -132,7 +235,7 @@ export default function App() {
     navigate("payment");
   };
 
-  const handlePaymentSuccess = (paymentMeta) => {
+  const handlePaymentSuccess = async (paymentMeta) => {
     const finalBooking = {
       ...inProgressBooking,
       ...paymentMeta,
@@ -141,42 +244,106 @@ export default function App() {
 
     setBookings((prev) => [finalBooking, ...prev]);
     setInProgressBooking(finalBooking);
+
+    try {
+      await apiRequest("/bookings", {
+        method: "POST",
+        body: JSON.stringify(finalBooking)
+      });
+    } catch (error) {
+      console.warn("Booking could not be saved to the backend:", error);
+    }
+
     navigate("confirmation");
   };
 
-  const handleCancelBooking = (bookingId) => {
+  const handleCancelBooking = async (bookingId) => {
     if (window.confirm("Are you sure you want to cancel this appointment?")) {
       setBookings((prev) =>
         prev.map((b) => (b.id === bookingId ? { ...b, status: "Cancelled" } : b))
       );
+
+      try {
+        await apiRequest(`/bookings/${bookingId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ status: "Cancelled" })
+        });
+      } catch (error) {
+        console.warn("Could not update booking status in the backend:", error);
+      }
     }
   };
 
   // Beautician Pro Actions
-  const handleUpdateBookingStatus = (bookingId, newStatus) => {
+  const handleUpdateBookingStatus = async (bookingId, newStatus) => {
     setBookings((prev) =>
       prev.map((b) => (b.id === bookingId ? { ...b, status: newStatus } : b))
     );
+
+    try {
+      await apiRequest(`/bookings/${bookingId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: newStatus })
+      });
+    } catch (error) {
+      console.warn("Could not update booking status in the backend:", error);
+    }
   };
 
   // Shop Owner Actions (LISTING PRODUCTS & ORDERS)
-  const handleAddNewProduct = (newProduct) => {
+  const handleAddNewProduct = async (newProduct) => {
     setProducts((prev) => [newProduct, ...prev]);
+
+    try {
+      await apiRequest("/products", {
+        method: "POST",
+        body: JSON.stringify(newProduct)
+      });
+    } catch (error) {
+      console.warn("Could not save product to the backend:", error);
+    }
   };
 
-  const handleDeleteProduct = (productId) => {
+  const handleDeleteProduct = async (productId) => {
     setProducts((prev) => prev.filter((p) => p.id !== productId));
+
+    try {
+      await apiRequest(`/products/${productId}`, {
+        method: "DELETE"
+      });
+    } catch (error) {
+      console.warn("Could not delete product in the backend:", error);
+    }
   };
 
-  const handleUpdateOrderStatus = (orderId, newStatus) => {
+  const handleUpdateOrderStatus = async (orderId, newStatus) => {
     setProductOrders((prev) =>
       prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
     );
+
+    try {
+      await apiRequest(`/product-orders/${orderId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: newStatus })
+      });
+    } catch (error) {
+      console.warn("Could not update order status in the backend:", error);
+    }
   };
 
   // Customer Product Marketplace Purchase Handler (100% FULL PRODUCT PAYMENT)
-  const handleOrderSuccess = (newOrder) => {
+  const handleOrderSuccess = async (newOrder) => {
     setProductOrders((prev) => [newOrder, ...prev]);
+
+    try {
+      await apiRequest("/product-orders", {
+        method: "POST",
+        body: JSON.stringify(newOrder)
+      });
+    } catch (error) {
+      console.warn("Order could not be saved to the backend:", error);
+    }
+
     alert(`Order ${newOrder.id} placed! Track it under "My Product Orders".`);
   };
 
@@ -222,20 +389,38 @@ export default function App() {
     );
   };
 
-  const handlePublishMediaPost = (newPost) => {
-    setPosts((prev) => [newPost, ...prev]);
+  const handlePublishMediaPost = async (newPost) => {
+    const savedPost = {
+      ...newPost,
+      id: newPost.id || `p_${Date.now()}`,
+      likesCount: newPost.likesCount || 0,
+      likedByMe: false,
+      savedByMe: false,
+      comments: newPost.comments || []
+    };
 
-    if (newPost.beauticianId) {
+    setPosts((prev) => [savedPost, ...prev]);
+
+    try {
+      await apiRequest("/posts", {
+        method: "POST",
+        body: JSON.stringify(savedPost)
+      });
+    } catch (error) {
+      console.warn("Post could not be saved to the backend:", error);
+    }
+
+    if (savedPost.beauticianId) {
       setBeauticians((prev) =>
         prev.map((b) => {
-          if (b.id === newPost.beauticianId) {
+          if (b.id === savedPost.beauticianId) {
             const newWorkItem = {
               id: "w_" + Date.now(),
-              title: newPost.serviceName || newPost.text.slice(0, 30),
-              category: newPost.category,
-              mediaType: newPost.mediaType,
-              url: newPost.videoUrl || newPost.image,
-              poster: newPost.image,
+              title: savedPost.serviceName || savedPost.text.slice(0, 30),
+              category: savedPost.category,
+              mediaType: savedPost.mediaType,
+              url: savedPost.videoUrl || savedPost.image,
+              poster: savedPost.image,
               likes: 1
             };
             return {
@@ -273,6 +458,14 @@ export default function App() {
         onOpenStudio={() => setIsStudioOpen(true)}
         onOpenRoleSwitcher={() => setIsRoleModalOpen(true)}
         currentRole={currentRole}
+        currentAccountName={currentAccount?.name}
+        userInitials={currentAccount?.name
+          ?.trim()
+          .split(/\s+/)
+          .slice(0, 2)
+          .map((part) => part[0])
+          .join("")
+          .toUpperCase()}
         activeBookingsCount={activeProBookings.length}
         activeShopOrdersCount={activeShopOrders.length}
       />
@@ -421,7 +614,24 @@ export default function App() {
             else if (role === "beautician") navigate("pro-dashboard");
             else if (role === "shop_owner") navigate("shop-portal");
           }}
+          currentAccount={currentAccount}
+          onOpenAccount={() => {
+            setIsRoleModalOpen(false);
+            setIsAccountModalOpen(true);
+          }}
+          onSignOut={() => {
+            setCurrentAccount(null);
+            setCurrentRole("customer");
+            navigate("home");
+          }}
           onClose={() => setIsRoleModalOpen(false)}
+        />
+      )}
+
+      {isAccountModalOpen && (
+        <AccountModal
+          onSubmit={handleAccountSubmit}
+          onClose={() => setIsAccountModalOpen(false)}
         />
       )}
 

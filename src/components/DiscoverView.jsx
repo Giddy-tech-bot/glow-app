@@ -58,7 +58,7 @@ export default function DiscoverView({
 
   return (
     <div className="page">
-      <div className="section-title" style={{ marginTop: 0 }}>
+      <div className="section-title discover-heading" style={{ marginTop: 0 }}>
         <div>
           <h2>Discover Beauty Professionals</h2>
           <p style={{ color: "var(--muted)", fontSize: "14px" }}>

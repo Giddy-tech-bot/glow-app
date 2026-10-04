@@ -42,6 +42,11 @@
 - Interactive feed with like counters, live commenting, bookmarking, and video player support.
 - Service tags on looks allowing clients to click **"Book This Look"** directly from the video reel.
 
+### 7. 🔐 Glow Accounts
+- Create a customer, beautician, or shop owner account with an email and password, then sign in again from the account and role switcher.
+- Passwords are stored as salted scrypt hashes in the backend's ignored `src/data/accounts.json` file; the signed-in profile is remembered in the current browser.
+- This lightweight account flow is for the demo app; it does not yet protect app routes or APIs. Booking, order, and social data still use shared demo data and are not isolated by account.
+
 ---
 
 ## 🛠️ Tech Stack
@@ -88,6 +93,8 @@
 ---
 
 ## 📱 Role Switching (Demo Mode)
+
+Use **Create an account / Sign in** in the role switcher to register a new profile or return to an existing one. The backend creates the account file on first registration.
 
 Use the **Role Switcher** in the top navigation bar to test all three experiences:
 1. **Customer**: `Grace K.` (Browse looks, book appointments, purchase products, view personal hub).

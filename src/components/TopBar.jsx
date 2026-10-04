@@ -13,6 +13,7 @@ export default function TopBar({
   onOpenStudio,
   onOpenRoleSwitcher,
   currentRole = "customer",
+  currentAccountName,
   activeBookingsCount = 3,
   activeShopOrdersCount = 1,
   notificationCount = 2,
@@ -30,7 +31,7 @@ export default function TopBar({
   const getRoleBadge = () => {
     if (currentRole === "beautician") {
       return {
-        label: "Beautician: Njeri MUA",
+        label: `Beautician: ${currentAccountName || "Njeri MUA"}`,
         color: "#168657",
         bg: "#e6f8ee",
         portalPage: "pro-dashboard",
@@ -40,7 +41,7 @@ export default function TopBar({
     }
     if (currentRole === "shop_owner") {
       return {
-        label: "Shop: Nairobi Glam",
+        label: `Shop: ${currentAccountName || "Nairobi Glam"}`,
         color: "#7e22ce",
         bg: "#f5f0ff",
         portalPage: "shop-portal",
@@ -49,7 +50,7 @@ export default function TopBar({
       };
     }
     return {
-      label: "Customer: Grace K.",
+      label: `Customer: ${currentAccountName || "Grace K."}`,
       color: "var(--pink)",
       bg: "#fff0f6",
       portalPage: "customer-dashboard",
@@ -235,7 +236,7 @@ export default function TopBar({
             background: currentRole === "beautician" ? "#168657" : (currentRole === "shop_owner" ? "#7e22ce" : "linear-gradient(135deg, var(--pink), #b40e53)")
           }}
         >
-          {currentRole === "beautician" ? "NJ" : (currentRole === "shop_owner" ? "SH" : "GK")}
+          {userInitials || (currentRole === "beautician" ? "NJ" : (currentRole === "shop_owner" ? "SH" : "GK"))}
         </button>
 
         {/* Mobile menu toggle */}

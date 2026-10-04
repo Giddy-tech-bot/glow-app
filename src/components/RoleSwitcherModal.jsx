@@ -1,9 +1,12 @@
 import React from "react";
-import { User, Scissors, Store, Check, X, ShieldCheck } from "lucide-react";
+import { User, Scissors, Store, Check, X, ShieldCheck, LogOut, UserPlus } from "lucide-react";
 
 export default function RoleSwitcherModal({
   currentRole,
   onSelectRole,
+  currentAccount,
+  onOpenAccount,
+  onSignOut,
   onClose
 }) {
   const roles = [
@@ -139,8 +142,16 @@ export default function RoleSwitcherModal({
 
         <div style={{ marginTop: "20px", textAlign: "center" }}>
           <button className="btn-secondary btn-full btn-small" onClick={onClose}>
-            Continue as {roles.find((r) => r.id === currentRole)?.name}
+            Continue as {currentAccount?.name || roles.find((r) => r.id === currentRole)?.name}
           </button>
+          <button className="btn-outline-pink btn-full account-switcher-action" onClick={onOpenAccount}>
+            <UserPlus size={15} /> {currentAccount ? "Switch or create an account" : "Create an account / Sign in"}
+          </button>
+          {currentAccount && (
+            <button className="account-sign-out" onClick={onSignOut}>
+              <LogOut size={14} /> Sign out of {currentAccount.name}
+            </button>
+          )}
         </div>
       </div>
     </div>
