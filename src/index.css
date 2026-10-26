@@ -1323,6 +1323,85 @@ main {
   max-width: 460px;
 }
 
+.account-social-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.account-social-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: white;
+  color: var(--text-main);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.account-social-button:hover {
+  border-color: var(--pink);
+  background: #fffafd;
+}
+
+.account-social-google,
+.account-social-facebook {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.account-social-google {
+  color: #4285f4;
+}
+
+.account-social-facebook {
+  color: #1877f2;
+  font-family: Arial, sans-serif;
+  font-size: 21px;
+}
+
+.account-provider-message {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.account-form-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.account-form-divider::before,
+.account-form-divider::after {
+  height: 1px;
+  flex: 1;
+  background: var(--border);
+  content: "";
+}
+
+.account-terms {
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: center;
+}
+
 .account-modal-heading {
   display: flex;
   align-items: center;

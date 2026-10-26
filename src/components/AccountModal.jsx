@@ -14,6 +14,7 @@ export default function AccountModal({ onSubmit, onClose }) {
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("customer");
   const [error, setError] = useState("");
+  const [providerMessage, setProviderMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (event) => {
@@ -39,6 +40,7 @@ export default function AccountModal({ onSubmit, onClose }) {
   const changeMode = (nextMode) => {
     setMode(nextMode);
     setError("");
+    setProviderMessage("");
   };
 
   return (
@@ -58,9 +60,38 @@ export default function AccountModal({ onSubmit, onClose }) {
           <span className="account-modal-icon"><UserPlus size={21} /></span>
           <div>
             <h2 id="account-modal-title">{mode === "register" ? "Create your Glow account" : "Welcome back"}</h2>
-            <p>{mode === "register" ? "Join Glow to book, discover, and share." : "Sign in to your Glow account."}</p>
+            <p>{mode === "register" ? "Your next great beauty day starts here." : "Sign in to continue to Glow."}</p>
           </div>
         </div>
+
+        <div className="account-social-options">
+          <button
+            className="account-social-button"
+            onClick={() => {
+              setError("");
+              setProviderMessage("Google sign-in is not connected yet. You can continue with email below.");
+            }}
+            type="button"
+          >
+            <span className="account-social-google" aria-hidden="true">G</span>
+            Continue with Google
+          </button>
+          <button
+            className="account-social-button"
+            onClick={() => {
+              setError("");
+              setProviderMessage("Facebook sign-in is not connected yet. You can continue with email below.");
+            }}
+            type="button"
+          >
+            <span className="account-social-facebook" aria-hidden="true">f</span>
+            Continue with Facebook
+          </button>
+        </div>
+
+        {providerMessage && <p className="account-provider-message" role="status">{providerMessage}</p>}
+
+        <div className="account-form-divider"><span>or continue with email</span></div>
 
         <form className="account-form" onSubmit={handleSubmit}>
           {mode === "register" && (
@@ -116,6 +147,8 @@ export default function AccountModal({ onSubmit, onClose }) {
             {isSubmitting ? "Please wait..." : mode === "register" ? "Create account" : "Sign in"}
           </button>
         </form>
+
+        <p className="account-terms">By continuing, you agree to Glow&apos;s Terms of Service and Privacy Policy.</p>
 
         <p className="account-mode-toggle">
           {mode === "register" ? "Already have an account?" : "New to Glow?"}{" "}
